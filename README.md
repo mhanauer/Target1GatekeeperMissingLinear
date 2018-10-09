@@ -579,15 +579,8 @@ Need to create difference scores
 
 ```{r}
 datPrePost3monthAnalysis = subset(datPrePost3monthAnalysis, Treatment == 1 | Treatment == 2 | Treatment == 3)
-
-datWideAnalysis = reshape(datPrePost3monthAnalysis, v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total"), timevar = "Time", direction = "wide", idvar = "ID")
-head(datWideAnalysis)
-
-
 m = 10
-head(datPrePost3monthAnalysis)
-
-datWideAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
+datPrePost3monthAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
 
 #compare.density(datPrePost3monthAnalysisImpute, var = "Sec1Total")
 #compare.density(datPrePost3monthAnalysisImpute, var = "Sec2Total")
@@ -600,7 +593,168 @@ datAnalysisAllComplete = NULL
 for(i in 1:m){
  datAnalysisAllComplete[[i]] = na.omit(datAnalysisAll[[i]])
 }
+datAnalysisAllComplete[[1]]$ID
+# Now get data into wide format
+datWideAnalysis = NULL
+for(i in 1:m){
+  datWideAnalysis[[i]] = reshape(datAnalysisAllComplete[[i]], v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total", "Age"), timevar = "Time", direction = "wide", idvar = "ID")
+}
+
+# Now create difference scores
+for(i in 1:m){
+  datWideAnalysis[[i]]$Sec2PostPre = datWideAnalysis[[i]]$Sec2Total.1-datWideAnalysis[[i]]$Sec2Total.0
+  datWideAnalysis[[i]]$Sec23monthPost = datWideAnalysis[[i]]$Sec2Total.2-datWideAnalysis[[i]]$Sec2Total.1
+  
+  datWideAnalysis[[i]]$Sec3F1PostPre = datWideAnalysis[[i]]$Sec3TotalF1.1-datWideAnalysis[[i]]$Sec3TotalF1.0
+  datWideAnalysis[[i]]$Sec3F2PostPre = datWideAnalysis[[i]]$Sec3TotalF2.1-datWideAnalysis[[i]]$Sec3TotalF2.0
+  
+  datWideAnalysis[[i]]$Sec3F13monthPost = datWideAnalysis[[i]]$Sec3TotalF1.2-datWideAnalysis[[i]]$Sec3TotalF1.1
+  datWideAnalysis[[i]]$Sec3F23monthPost = datWideAnalysis[[i]]$Sec3TotalF2.2-datWideAnalysis[[i]]$Sec3TotalF2.1
+}
 ```
+########################################
+T.test Outcome 2, Post-Pre,T1 and T2
+########################################
+Formula for dependent t-test: https://www.surveymonkey.com/mp/t-tests-explained/
+Need to grab the degrees of freedom, which is n-1 for the number of pairs
+
+Subset data for T1 and T2, then grab mean and sd for all ten of them
+```{r}
+datWideAnalysisT1 = NULL
+datWideAnalysisT2 = NULL
+
+for(i in 1:m){
+  datWideAnalysisT1[[i]] = subset(datWideAnalysis[[i]], Treatment == 1)
+  datWideAnalysisT2[[i]] = subset(datWideAnalysis[[i]], Treatment == 2)
+}
+
+n1 = dim(datWideAnalysisT1[[1]])[1]
+n2 = dim(datWideAnalysisT2[[1]])[1]
+
+#Need the mean and sd for each treatment
+# We need to get the means and sd for Section 2 Pre-Post
+# So I need to get the difference scores, then I need the mean, then substract each mean of the difference score for each treatment
+# how do I get the standard deviation
+
+Sec2PostPreSd = NULL
+Sec2PostPreMean = NULL
+for(i in 1:m){
+  Sec2PostPreSd[[i]] =  sqrt((n1-1)*sd(datWideAnalysisT1[[i]]$Sec2PostPre)^2 + (n2-1)*sd(datWideAnalysisT2[[i]]$Sec2PostPre)^2/((n1+n2)-2))*sqrt(1/n1 + 1/n2)
+  Sec2PostPreMean[[i]] = mean(Sec2PostPreDiff[[i]])
+}
+
+Sec2PostPreMean = data.frame(Sec2PostPreMean)
+Sec2PostPreSd = data.frame(Sec2PostPreSd)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+meldAllT_stat(Sec2PostPreMean, Sec2PostPreSd)
+```
+########################################
+T.test Outcome 2, Post-Pre,T1 and T3
+########################################
+```{r}
+datWideAnalysisT1 = NULL
+datWideAnalysisT3 = NULL
+
+for(i in 1:m){
+  datWideAnalysisT1[[i]] = subset(datWideAnalysis[[i]], Treatment == 1)
+  datWideAnalysisT3[[i]] = subset(datWideAnalysis[[i]], Treatment == 3)
+}
+
+n1 = dim(datWideAnalysisT1[[1]])[1]
+n2 = dim(datWideAnalysisT3[[1]])[1]
+
+#Need the mean and sd for each treatment
+# We need to get the means and sd for Section 2 Pre-Post
+# So I need to get the difference scores, then I need the mean, then substract each mean of the difference score for each treatment
+# how do I get the standard deviation
+
+Sec2PostPreSd = NULL
+Sec2PostPreMean = NULL
+for(i in 1:m){
+  Sec2PostPreSd[[i]] =  sqrt((n1-1)*sd(datWideAnalysisT1[[i]]$Sec2PostPre)^2 + (n2-1)*sd(datWideAnalysisT3[[i]]$Sec2PostPre)^2/((n1+n2)-2))*sqrt(1/n1 + 1/n2)
+  Sec2PostPreMean[[i]] = mean(Sec2PostPreDiff[[i]])
+}
+
+Sec2PostPreMean = data.frame(Sec2PostPreMean)
+Sec2PostPreSd = data.frame(Sec2PostPreSd)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+meldAllT_stat(Sec2PostPreMean, Sec2PostPreSd)
+```
+Ok se is way too big for t-tests try linear regression
+We are testing 2 versus 1 and 3 and 3 versus 1 and 2 and 2 versus 3
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+betas = NULL
+betasSD = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec2PostPre ~ factor(Treatment) + Gender + Race + Race, data = datWideAnalysis[[i]])
+  stdBetas[[i]] = std.coef(output[[i]], partial.sd = TRUE)
+  betas = stdBetas[[i]][,1]
+  betasSD[[i]] = stdBetas[[i]][,2]
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+resultsNoBeta = meldAllT_stat(coef_output, se_output)
+resultsBeta = 
+
+compmeans(datWideAnalysis[[1]]$Sec2PostPre, datWideAnalysis[[1]]$Treatment)
+
+
+test = std.coef(output[[5]], partial.sd = TRUE)
+test[,1]
+
+
+outputSummary
+```
+Now contrasts
+```{r}
+K = matrix(c(0, 1, -1), 1)
+
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+
+```
+
+
 
 
 
