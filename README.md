@@ -579,15 +579,8 @@ Need to create difference scores
 
 ```{r}
 datPrePost3monthAnalysis = subset(datPrePost3monthAnalysis, Treatment == 1 | Treatment == 2 | Treatment == 3)
-
-datWideAnalysis = reshape(datPrePost3monthAnalysis, v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total"), timevar = "Time", direction = "wide", idvar = "ID")
-head(datWideAnalysis)
-
-
 m = 10
-head(datPrePost3monthAnalysis)
-
-datWideAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
+datPrePost3monthAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
 
 #compare.density(datPrePost3monthAnalysisImpute, var = "Sec1Total")
 #compare.density(datPrePost3monthAnalysisImpute, var = "Sec2Total")
@@ -600,6 +593,63 @@ datAnalysisAllComplete = NULL
 for(i in 1:m){
  datAnalysisAllComplete[[i]] = na.omit(datAnalysisAll[[i]])
 }
+datAnalysisAllComplete[[1]]$ID
+# Now get data into wide format
+datWideAnalysis = NULL
+for(i in 1:m){
+  datWideAnalysis[[i]] = reshape(datAnalysisAllComplete[[i]], v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total", "Age"), timevar = "Time", direction = "wide", idvar = "ID")
+}
+
+# Now create difference scores
+for(i in 1:m){
+  datWideAnalysis[[i]]$Sec2PostPre = datWideAnalysis[[i]]$Sec2Total.1-datWideAnalysis[[i]]$Sec2Total.0
+  datWideAnalysis[[i]]$Sec23monthPost = datWideAnalysis[[i]]$Sec2Total.2-datWideAnalysis[[i]]$Sec2Total.1
+  
+  datWideAnalysis[[i]]$Sec3F1PostPre = datWideAnalysis[[i]]$Sec3TotalF1.1-datWideAnalysis[[i]]$Sec3TotalF1.0
+  datWideAnalysis[[i]]$Sec3F2PostPre = datWideAnalysis[[i]]$Sec3TotalF2.1-datWideAnalysis[[i]]$Sec3TotalF2.0
+  
+  datWideAnalysis[[i]]$Sec3F13monthPost = datWideAnalysis[[i]]$Sec3TotalF1.2-datWideAnalysis[[i]]$Sec3TotalF1.1
+  datWideAnalysis[[i]]$Sec3F23monthPost = datWideAnalysis[[i]]$Sec3TotalF2.2-datWideAnalysis[[i]]$Sec3TotalF2.1
+}
+```
+########################################
+T.test Outcome 2, Post-Pre,T1 and T2
+########################################
+Formula for dependent t-test: https://www.surveymonkey.com/mp/t-tests-explained/
+Need to grab the degrees of freedom, which is n-1 for the number of pairs
+
+Subset data for T1 and T2, then grab mean and sd for all ten of them
+```{r}
+df = dim(datWideAnalysis[[1]])[1]
+
+datWideAnalysisT1T2 = NULL
+for(i in 1:m){
+  datWideAnalysisT1T2[[i]] = subset(datWideAnalysis[[i]], Treatment == 1 | Treatment == 2)
+}
+
+# We need to get the means and sd for Section 2 Pre-Post
+Sec2PostPreMean = NULL
+Sec23monthsPostMean = NULL
+Sec2PostPreSd = NULL
+Sec23monthsPostSd = NULL
+
+for(i in 1:m){
+  Sec2PostPreMean[[i]] =  mean(datWideAnalysisT1T2[[i]]$Sec2PostPre)
+  Sec23monthsPostMean[[i]] = mean(datWideAnalysisT1T2[[i]]$Sec23monthPost)
+  Sec2PostPreSd[[i]] =  sd(datWideAnalysisT1T2[[i]]$Sec2PostPre)
+  Sec23monthsPostSd[[i]] = sd(datWideAnalysisT1T2[[i]]$Sec23monthPost)
+}
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+
 ```
 
 
