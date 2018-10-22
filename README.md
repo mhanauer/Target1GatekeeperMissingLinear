@@ -50,7 +50,7 @@ library(MuMIn)
 library(HLMdiag)
 library(Hmisc)
 library(stargazer)
-
+library(effsize)
 setwd("P:/Evaluation/TN Lives Count_Writing/3_Target1_SUICClinicalTrainingComparison/3_Data & Analyses")
 datPre = read.csv("Pre.csv", header = FALSE, row.names = NULL)
 
@@ -269,6 +269,23 @@ datPrePost3month$Sec4QlB.x =  datPrePost3month$Sec4QlB.x-3.00
 ##Race: White =1, other racial identity
 #Edu: Bachelors or lower = 1, higher than Bachelors = 0
 
+## Now I am getting rid of any data that is missing more than 70% of data
+head(datPrePost3month)
+datPrePost3monthComplete = data.frame(is.na(datPrePost3month))
+datPrePost3monthComplete$NAs = apply(datPrePost3monthComplete, 1, sum)
+datPrePost3monthComplete$NAs = datPrePost3monthComplete$NAs / dim(datPrePost3monthComplete)[2]
+describe.factor(datPrePost3monthComplete$NAs)
+datPrePost3monthComplete$NAs = ifelse(datPrePost3monthComplete$NAs >= .7, 0,1)
+
+
+# I need to grab the NAs variable put it into the full data set, then create two data sets and dim them one with all the data and one without all the data, then use na.omit later
+datPrePost3month$NAs = datPrePost3monthComplete$NAs 
+datPrePost3monthComplete = subset(datPrePost3month, NAs == 1)
+dim(datPrePost3monthComplete)[1]/dim(datPrePost3month)[1]
+datPrePost3month = datPrePost3monthComplete
+datPrePost3month$NAs = NULL
+
+
 head(datPrePost3month)
 
 datPrePost3monthSec1 = datPrePost3month[,c(9,10:21)]
@@ -403,6 +420,7 @@ datPrePost3monthAnalysis$Race = as.factor(datPrePost3monthAnalysis$Race)
 datPrePost3monthAnalysis$Edu = as.factor(datPrePost3monthAnalysis$Edu)
 
 head(datPrePost3monthAnalysis)
+dim(datPrePost3monthAnalysis)
 ```
 Assess missing values for prePost3month and prePost
 ```{r}
@@ -437,16 +455,39 @@ TestMCARNormality(datPrePost3monthAnalysis)
 Get descriptives for each time point
 ```{r}
 datPrePost3monthAnalysisBase = subset(datPrePost3monthAnalysis, Time == 0)
-describe(datPrePost3monthAnalysis)
+describe(datPrePost3monthAnalysisBase)
+round(sd(datPrePost3monthAnalysisBase$Age, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec2Total, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec3TotalF1, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec3TotalF2, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec4Total, na.rm  =TRUE),2)
 
 
 datPrePost3monthAnalysisPost = subset(datPrePost3monthAnalysis, Time == 1)
 describe(datPrePost3monthAnalysisPost)
 
+datPrePost3monthAnalysisPostTest = na.omit(subset(datPrePost3monthAnalysis, Time == 1))
+describe(datPrePost3monthAnalysisPostTest)
 
-datPrePost3monthAnalysis3month = subset(datPrePost3monthAnalysis, Time == 2)
-describe(datPrePost3monthAnalysis3month)
+round(sd(datPrePost3monthAnalysisPost$Age, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec2Total, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec3TotalF1, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec3TotalF2, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec4Total, na.rm  =TRUE),2)
+
+datPre3month3monthAnalysis3monthTest = na.omit(subset(datPrePost3monthAnalysis, Time == 2))
+describe(datPre3month3monthAnalysis3monthTest)
+
+datPre3month3monthAnalysis3month= subset(datPrePost3monthAnalysis, Time == 2)
+describe(datPre3month3monthAnalysis3month)
+round(sd(datPre3month3monthAnalysis3month$Age, na.rm  =TRUE),2)
+round(sd(datPre3month3monthAnalysis3month$Sec2Total, na.rm  =TRUE),2)
+round(sd(datPre3month3monthAnalysis3month$Sec3TotalF1, na.rm  =TRUE),2)
+round(sd(datPre3month3monthAnalysis3month$Sec3TotalF2, na.rm  =TRUE),2)
+round(sd(datPre3month3monthAnalysis3month$Sec4Total, na.rm  =TRUE),2)
+
 ```
+
 
 
 Now generate missing data for varibles
@@ -470,7 +511,7 @@ datPrePost3monthAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = 
 
 compare.density(datPrePost3monthAnalysisImpute, var = "Sec1Total")
 compare.density(datPrePost3monthAnalysisImpute, var = "Sec2Total")
-compare.density(datPrePost3monthAnalysisImpute, var = "Sec3Total")
+#compare.density(datPrePost3monthAnalysisImpute, var = "Sec3Total")
 compare.density(datPrePost3monthAnalysisImpute, var = "Sec4Total")
 summary(datPrePost3monthAnalysisImpute)
 datAnalysisAll = lapply(1:m, function(x){datPrePost3monthAnalysisImpute$imputations[[x]]})
@@ -484,7 +525,7 @@ for(i in 1:m){
 ```
 Now get desciptives for base
 ```{r}
-datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAll[[x]], Time == 0)})
+datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAllComplete[[x]], Time == 0)})
 
 mean.out = NULL
 for(i in 1:m) {
@@ -513,7 +554,7 @@ mean.sd.out
 ```
 Now get descriptives for post
 ```{r}
-datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAll[[x]], Time == 1)})
+datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAllComplete[[x]], Time == 1)})
 
 mean.out = NULL
 for(i in 1:m) {
@@ -542,7 +583,7 @@ mean.sd.out
 ```
 Now get descriptives for 3month
 ```{r}
-datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAll[[x]], Time == 2)})
+datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAllComplete[[x]], Time == 2)})
 
 mean.out = NULL
 for(i in 1:m) {
@@ -579,15 +620,8 @@ Need to create difference scores
 
 ```{r}
 datPrePost3monthAnalysis = subset(datPrePost3monthAnalysis, Treatment == 1 | Treatment == 2 | Treatment == 3)
-
-datWideAnalysis = reshape(datPrePost3monthAnalysis, v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total"), timevar = "Time", direction = "wide", idvar = "ID")
-head(datWideAnalysis)
-
-
 m = 10
-head(datPrePost3monthAnalysis)
-
-datWideAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
+datPrePost3monthAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
 
 #compare.density(datPrePost3monthAnalysisImpute, var = "Sec1Total")
 #compare.density(datPrePost3monthAnalysisImpute, var = "Sec2Total")
@@ -600,7 +634,2315 @@ datAnalysisAllComplete = NULL
 for(i in 1:m){
  datAnalysisAllComplete[[i]] = na.omit(datAnalysisAll[[i]])
 }
+datAnalysisAllComplete[[1]]$ID
+# Now get data into wide format
+datWideAnalysis = NULL
+for(i in 1:m){
+  datWideAnalysis[[i]] = reshape(datAnalysisAllComplete[[i]], v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total", "Age"), timevar = "Time", direction = "wide", idvar = "ID")
+}
+
+# Now create difference scores
+for(i in 1:m){
+  datWideAnalysis[[i]]$Sec2PostPre = datWideAnalysis[[i]]$Sec2Total.1-datWideAnalysis[[i]]$Sec2Total.0
+  datWideAnalysis[[i]]$Sec23monthPost = datWideAnalysis[[i]]$Sec2Total.2-datWideAnalysis[[i]]$Sec2Total.1
+  
+  datWideAnalysis[[i]]$Sec3F1PostPre = datWideAnalysis[[i]]$Sec3TotalF1.1-datWideAnalysis[[i]]$Sec3TotalF1.0
+  datWideAnalysis[[i]]$Sec3F2PostPre = datWideAnalysis[[i]]$Sec3TotalF2.1-datWideAnalysis[[i]]$Sec3TotalF2.0
+  
+  datWideAnalysis[[i]]$Sec3F13monthPost = datWideAnalysis[[i]]$Sec3TotalF1.2-datWideAnalysis[[i]]$Sec3TotalF1.1
+  datWideAnalysis[[i]]$Sec3F23monthPost = datWideAnalysis[[i]]$Sec3TotalF2.2-datWideAnalysis[[i]]$Sec3TotalF2.1
+}
+```
+#########################
+T1 Only Sec2PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T1 Only Section 2 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T1 Section 2 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT1 = NULL
+for(i in 1:m){
+  datAllTimeT1[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 1)
+}
+
+test= compmeans(datAllTimeT1[[1]]$Sec2Total, datAllTimeT1[[1]]$Time)
+test
+
+
+```
+#################################################
+T1 Section2 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec2TotalT0 = NULL
+Sec2TotalT1 = NULL
+for(i in 1:m){
+  Sec2TotalT0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+  Sec2TotalT1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  cohenDat[[i]] = mean(Sec2TotalT1[[i]]$Sec2Total-Sec2TotalT0[[i]]$Sec2Total)/sqrt((sd(Sec2TotalT1[[i]]$Sec2Total)^2+sd(Sec2TotalT0[[i]]$Sec2Total)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T1 Section2 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec2TotalT0 = NULL
+Sec2TotalT1 = NULL
+for(i in 1:m){
+  Sec2TotalT0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec2TotalT1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec2TotalT1[[i]]$Sec2Total-Sec2TotalT0[[i]]$Sec2Total)/sqrt((sd(Sec2TotalT1[[i]]$Sec2Total)^2+sd(Sec2TotalT0[[i]]$Sec2Total)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+########################
+T2 Only Sec2PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T2 Only Section 2 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T2 Sectoin 2 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT2 = NULL
+for(i in 1:m){
+  datAllTimeT2[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 2)
+}
+
+test= compmeans(datAllTimeT2[[1]]$Sec2Total, datAllTimeT2[[1]]$Time, ylab = "Section Two Total Score", xlab = "Time")
+test
+```
+#################################################
+T2 Section2 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec2TotalT0 = NULL
+Sec2TotalT1 = NULL
+for(i in 1:m){
+Sec2TotalT0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec2TotalT1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec2TotalT1[[i]]$Sec2Total-Sec2TotalT0[[i]]$Sec2Total)/sqrt((sd(Sec2TotalT1[[i]]$Sec2Total)^2+sd(Sec2TotalT0[[i]]$Sec2Total)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T1 Section2 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec2TotalT0 = NULL
+Sec2TotalT1 = NULL
+for(i in 1:m){
+  Sec2TotalT0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec2TotalT1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec2TotalT1[[i]]$Sec2Total-Sec2TotalT0[[i]]$Sec2Total)/sqrt((sd(Sec2TotalT1[[i]]$Sec2Total)^2+sd(Sec2TotalT0[[i]]$Sec2Total)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#########################
+T3 Only Sec2PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T3 Only Section 2 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T3 Sectoin 2 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT3 = NULL
+for(i in 1:m){
+  datAllTimeT3[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 3)
+}
+
+test= compmeans(datAllTimeT3[[1]]$Sec2Total, datAllTimeT3[[1]]$Time)
+test
+```
+#################################################
+T2 Section2 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec2TotalT0 = NULL
+Sec2TotalT1 = NULL
+for(i in 1:m){
+Sec2TotalT0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec2TotalT1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec2TotalT1[[i]]$Sec2Total-Sec2TotalT0[[i]]$Sec2Total)/sqrt((sd(Sec2TotalT1[[i]]$Sec2Total)^2+sd(Sec2TotalT0[[i]]$Sec2Total)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T1 Section2 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec2TotalT0 = NULL
+Sec2TotalT1 = NULL
+for(i in 1:m){
+  Sec2TotalT0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec2TotalT1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec2TotalT1[[i]]$Sec2Total-Sec2TotalT0[[i]]$Sec2Total)/sqrt((sd(Sec2TotalT1[[i]]$Sec2Total)^2+sd(Sec2TotalT0[[i]]$Sec2Total)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+##################################
+Section 2 display predicted values
+##################################
+```{r}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec2Total ~ Treatment*poly(Time, degree = 2)  + Gender + Age + Race + (1 | ID), data  = datAnalysisAllComplete[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+Try mod graph
+```{r}
+modGraph = NULL
+for(i in 1:m){
+  modGraph[[i]] = cat_plot(model = outputReg[[i]], pred = "Time", modx = "Treatment", cluster = "ID", data = datAnalysisAllComplete[[i]], y.label = "Section two total score")
+}
+modGraph[[1]]
 ```
 
 
 
+#########################
+T1 Only Sec3F1PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T1 Only Section 3F1 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T1 Section 3F1 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT1 = NULL
+for(i in 1:m){
+  datAllTimeT1[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 1)
+}
+
+test= compmeans(datAllTimeT1[[1]]$Sec3TotalF1, datAllTimeT1[[1]]$Time)
+test
+```
+#################################################
+T2 Section3F1 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF1T0 = NULL
+Sec3TotalF1T1 = NULL
+for(i in 1:m){
+Sec3TotalF1T0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec3TotalF1T1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec3TotalF1T1[[i]]$Sec3TotalF1-Sec3TotalF1T0[[i]]$Sec3TotalF1)/sqrt((sd(Sec3TotalF1T1[[i]]$Sec3TotalF1)^2+sd(Sec3TotalF1T0[[i]]$Sec3TotalF1)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T1 Section3F1 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF1T0 = NULL
+Sec3TotalF1T1 = NULL
+for(i in 1:m){
+  Sec3TotalF1T0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec3TotalF1T1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec3TotalF1T1[[i]]$Sec3TotalF1-Sec3TotalF1T0[[i]]$Sec3TotalF1)/sqrt((sd(Sec3TotalF1T1[[i]]$Sec3TotalF1)^2+sd(Sec3TotalF1T0[[i]]$Sec3TotalF1)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#########################
+T2 Only Sec3F1PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T2 Only Section 3F1 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T2 Section 3F1 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT2 = NULL
+for(i in 1:m){
+  datAllTimeT2[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 2)
+}
+
+test= compmeans(datAllTimeT2[[1]]$Sec3TotalF1, datAllTimeT2[[1]]$Time)
+test
+```
+#################################################
+T2 Section3F1 Hedge's G for T0 and T1 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF1T0 = NULL
+Sec3TotalF1T1 = NULL
+for(i in 1:m){
+  Sec3TotalF1T0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+  Sec3TotalF1T1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  cohenDat[[i]] = mean(Sec3TotalF1T1[[i]]$Sec3TotalF1-Sec3TotalF1T0[[i]]$Sec3TotalF1)/sqrt((sd(Sec3TotalF1T1[[i]]$Sec3TotalF1)^2+sd(Sec3TotalF1T0[[i]]$Sec3TotalF1)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#########################
+T3 Only Sec3F1PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T3 Only Section 3F1 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T3  Section 3F1 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT3 = NULL
+for(i in 1:m){
+  datAllTimeT3[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 3)
+}
+
+test= compmeans(datAllTimeT3[[1]]$Sec3TotalF1, datAllTimeT3[[1]]$Time)
+test
+```
+#################################################
+T3 Section3F1 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF1T0 = NULL
+Sec3TotalF1T1 = NULL
+for(i in 1:m){
+Sec3TotalF1T0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec3TotalF1T1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec3TotalF1T1[[i]]$Sec3TotalF1-Sec3TotalF1T0[[i]]$Sec3TotalF1)/sqrt((sd(Sec3TotalF1T1[[i]]$Sec3TotalF1)^2+sd(Sec3TotalF1T0[[i]]$Sec3TotalF1)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T3 Section3F1 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF1T0 = NULL
+Sec3TotalF1T1 = NULL
+for(i in 1:m){
+  Sec3TotalF1T0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec3TotalF1T1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec3TotalF1T1[[i]]$Sec3TotalF1-Sec3TotalF1T0[[i]]$Sec3TotalF1)/sqrt((sd(Sec3TotalF1T1[[i]]$Sec3TotalF1)^2+sd(Sec3TotalF1T0[[i]]$Sec3TotalF1)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#########################
+T1 Only Sec3F2PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T1 Only Section 3F2 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T1 Section 3F2 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT1 = NULL
+for(i in 1:m){
+  datAllTimeT1[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 1)
+}
+
+test= compmeans(datAllTimeT1[[1]]$Sec3TotalF2, datAllTimeT1[[1]]$Time)
+test
+```
+#################################################
+T1 Section3F1 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF2T0 = NULL
+Sec3TotalF2T1 = NULL
+for(i in 1:m){
+Sec3TotalF2T0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec3TotalF2T1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec3TotalF2T1[[i]]$Sec3TotalF2-Sec3TotalF2T0[[i]]$Sec3TotalF2)/sqrt((sd(Sec3TotalF2T1[[i]]$Sec3TotalF2)^2+sd(Sec3TotalF2T0[[i]]$Sec3TotalF2)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T1 Section3F1 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 1) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF2T0 = NULL
+Sec3TotalF2T1 = NULL
+for(i in 1:m){
+  Sec3TotalF2T0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec3TotalF2T1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec3TotalF2T1[[i]]$Sec3TotalF2-Sec3TotalF2T0[[i]]$Sec3TotalF2)/sqrt((sd(Sec3TotalF2T1[[i]]$Sec3TotalF2)^2+sd(Sec3TotalF2T0[[i]]$Sec3TotalF2)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+##################################
+Section 3F1 display predicted values
+##################################
+```{r}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF1 ~ Treatment*poly(Time, degree = 2)  + Gender + Age + Race + (1 | ID), data  = datAnalysisAllComplete[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+Try mod graph
+```{r}
+modGraph = NULL
+for(i in 1:m){
+  modGraph[[i]] = cat_plot(model = outputReg[[i]], pred = "Time", modx = "Treatment", cluster = "ID", data = datAnalysisAllComplete[[i]], y.label = "Section Three Factor 1 total score")
+}
+modGraph[[1]]
+```
+
+
+#########################
+T2 Only Sec3F2PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T2 Only Section 3F2 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T2 Section 3F2 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT2 = NULL
+for(i in 1:m){
+  datAllTimeT2[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 2)
+}
+
+test= compmeans(datAllTimeT2[[1]]$Sec3TotalF2, datAllTimeT2[[1]]$Time)
+test
+```
+#################################################
+T2 Section3F1 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF2T0 = NULL
+Sec3TotalF2T1 = NULL
+for(i in 1:m){
+Sec3TotalF2T0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec3TotalF2T1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec3TotalF2T1[[i]]$Sec3TotalF2-Sec3TotalF2T0[[i]]$Sec3TotalF2)/sqrt((sd(Sec3TotalF2T1[[i]]$Sec3TotalF2)^2+sd(Sec3TotalF2T0[[i]]$Sec3TotalF2)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T2 Section3F1 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 2) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF2T0 = NULL
+Sec3TotalF2T1 = NULL
+for(i in 1:m){
+  Sec3TotalF2T0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec3TotalF2T1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec3TotalF2T1[[i]]$Sec3TotalF2-Sec3TotalF2T0[[i]]$Sec3TotalF2)/sqrt((sd(Sec3TotalF2T1[[i]]$Sec3TotalF2)^2+sd(Sec3TotalF2T0[[i]]$Sec3TotalF2)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#########################
+T3 Only Sec3F2PrePost
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+# Figure out the degrees of freedom 
+
+#coefsAll = mi.meld(q = coef_output, se = se_output)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+#########################
+T3 Only Section 3F2 3month Post
+#########################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Time  + Gender + Age + Race + (1 | ID), data  = datTimeTreat[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+####################################
+T3  Section 3F2 Table for change over time 
+####################################
+
+```{r}
+library(descr)
+
+datAllTimeT3 = NULL
+for(i in 1:m){
+  datAllTimeT3[[i]] = subset(datAnalysisAllComplete[[i]], Treatment == 3)
+}
+
+test= compmeans(datAllTimeT3[[1]]$Sec3TotalF2, datAllTimeT3[[1]]$Time)
+test
+```
+#################################################
+T3 Section3F1 Hedge's G for pre-post 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 0 | Time == 1)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF2T0 = NULL
+Sec3TotalF2T1 = NULL
+for(i in 1:m){
+Sec3TotalF2T0[[i]] = subset(datTimeTreat[[i]], Time == 0)
+Sec3TotalF2T1[[i]] = subset(datTimeTreat[[i]], Time == 1)
+cohenDat[[i]] = mean(Sec3TotalF2T1[[i]]$Sec3TotalF2-Sec3TotalF2T0[[i]]$Sec3TotalF2)/sqrt((sd(Sec3TotalF2T1[[i]]$Sec3TotalF2)^2+sd(Sec3TotalF2T0[[i]]$Sec3TotalF2)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+coefsAll = mi.meld(q = x, se = y)
+coefs1 = t(data.frame(coefsAll$q.mi))
+ses1 = t(data.frame(coefsAll$se.mi))
+return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+#################################################
+T3 Section3F2 Hedge's G for T1 and T2 
+Use this formula because sample sizes the same: https://www.socscistatistics.com/effectsize/Default3.aspx
+#################################################
+```{r}
+datTime = NULL
+for(i in 1:m){
+  datTime[[i]] = subset(datAnalysisAllComplete[[i]], Time == 1 | Time == 2)
+}
+
+datTimeTreat = NULL
+for(i in 1:m){
+  datTimeTreat[[i]] = subset(datTime[[i]], Treatment == 3) 
+}
+
+library(psych)
+cohenDat = NULL
+Sec3TotalF2T0 = NULL
+Sec3TotalF2T1 = NULL
+for(i in 1:m){
+  Sec3TotalF2T0[[i]] = subset(datTimeTreat[[i]], Time == 1)
+  Sec3TotalF2T1[[i]] = subset(datTimeTreat[[i]], Time == 2)
+  cohenDat[[i]] = mean(Sec3TotalF2T1[[i]]$Sec3TotalF2-Sec3TotalF2T0[[i]]$Sec3TotalF2)/sqrt((sd(Sec3TotalF2T1[[i]]$Sec3TotalF2)^2+sd(Sec3TotalF2T0[[i]]$Sec3TotalF2)^2)/2)
+}
+
+cohenD = data.frame(cohenDat)
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+```
+##################################
+Section 3F1 display predicted values
+##################################
+```{r}
+
+output = list()
+outputReg = list()
+coef_output =  NULL
+se_output = NULL
+rSquared = NULL
+df = NULL
+
+
+for(i in 1:m){
+  output[[i]] = lmer(Sec3TotalF2 ~ Treatment*poly(Time, degree = 2)  + Gender + Age + Race + (1 | ID), data  = datAnalysisAllComplete[[i]])
+  outputReg[[i]] = output[[i]]
+  rSquared[[i]] = r.squaredGLMM(output[[i]])
+  output[[i]] = summary(output[[i]])
+  coef_output[[i]] = output[[i]]$coefficients[,1]
+  se_output[[i]] = output[[i]]$coefficients[,2]
+  df[[i]] = output[[i]]$coefficients[,3]
+}
+coef_output = data.frame(coef_output)
+coef_output
+quickTrans = function(x){
+  x = data.frame(x)
+  x = t(x)
+  x = data.frame(x)
+}
+coef_output = quickTrans(coef_output)
+coef_output
+se_output = quickTrans(se_output)
+
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  z_stat = coefs1/ses1
+  p = 2*pnorm(-abs(z_stat))
+  return(data.frame(coefs1, ses1, z_stat, p))
+}
+
+results = meldAllT_stat(coef_output, se_output)
+round(results,3)
+
+```
+Try mod graph
+```{r}
+modGraph = NULL
+for(i in 1:m){
+  modGraph[[i]] = cat_plot(model = outputReg[[i]], pred = "Time", modx = "Treatment", cluster = "ID", data = datAnalysisAllComplete[[i]], y.label = "Section Three Factor 2 total score", interval = FALSE, geom = "line")
+}
+modGraph[[1]]
+```
+
+
+##########################################################
+Linear Model: Section  Sec2PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec2PostPre ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec2PostPre, datWideAnalysis[[1]]$Treatment)
+```
+Contrasts 
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+########################################
+Hedge's G Outcome 2, Post-Pre,T1 and T3
+########################################
+```{r}
+datWideAnalysisT12 = NULL
+
+for(i in 1:m){
+  datWideAnalysisT12[[i]] = subset(datWideAnalysis[[i]], Treatment == 1 | Treatment == 3)
+}
+
+#Need the mean and sd for each treatment
+# We need to get the means and sd for Section 2 Pre-Post
+# So I need to get the difference scores, then I need the mean, then substract each mean of the difference score for each treatment
+# how do I get the standard deviation
+
+cohenDat = NULL
+for(i in 1:m){
+  cohenDat[[i]] = cohen.d(datWideAnalysisT12[[i]]$Sec2PostPre, datWideAnalysisT12[[i]]$Treatment, hedges.correction = TRUE)
+  cohenDat[[i]] = cohenDat[[i]]$estimate
+}
+
+cohenD = data.frame(t(data.frame(cohenDat)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+
+```
+########################################
+Hedge's G Outcome 2, Post-Pre,T2 and T3
+########################################
+```{r}
+datWideAnalysisT12 = NULL
+
+for(i in 1:m){
+  datWideAnalysisT12[[i]] = subset(datWideAnalysis[[i]], Treatment == 2 | Treatment == 3)
+}
+
+
+cohenDat = NULL
+for(i in 1:m){
+  cohenDat[[i]] = cohen.d(datWideAnalysisT12[[i]]$Sec2PostPre, datWideAnalysisT12[[i]]$Treatment, hedges.correction = TRUE)
+  cohenDat[[i]] = cohenDat[[i]]$estimate
+}
+
+cohenD = data.frame(t(data.frame(cohenDat)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+
+```
+##########################################################
+Linear Model: Section  Sec23monthPost, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec23monthPost ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec23monthPost, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec23monthPost T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+No differences no need for cohen's D
+
+##########################################################
+Linear Model: Section  Sec3F1PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+for(i in 1:m){
+  output[[i]] = lm(Sec3F1PostPre ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec3F1PostPre, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F1PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+##########################################################
+Linear Model: Section  Sec3F13monthPost, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec23monthPost ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec23monthPost, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F1PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+##########################################################
+Linear Model: Section  Sec3F2PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+
+for(i in 1:m){
+  output[[i]] = lm(Sec3F2PostPre ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec3F2PostPre, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F2PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+##########################################################
+Linear Model: Section  Sec3F2PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec3F23monthPost~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec3F2PostPre, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F1PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
