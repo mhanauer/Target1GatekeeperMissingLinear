@@ -13,6 +13,8 @@ Data cleaning
 ################
 ```{r}
 library(foreign)
+library(installr)
+library(konfound)
 library(nnet)
 library(ggplot2)
 library(prettyR)
@@ -22,8 +24,6 @@ library(descr)
 library(Amelia)
 library(mitools)
 library(BaylorEdPsych)
-library(openxlsx)
-library(lavaan)
 library(lavaan)
 library(psych)
 library(semTools)
@@ -42,15 +42,11 @@ library(Amelia)
 library(plyr)
 library(DescTools)
 library(MissMech)
-library(robustlmm)
 library(jtools)
-library(lmtest)
-library(lmerTest)
 library(MuMIn)
 library(HLMdiag)
 library(Hmisc)
-library(stargazer)
-
+library(effsize)
 setwd("P:/Evaluation/TN Lives Count_Writing/3_Target1_SUICClinicalTrainingComparison/3_Data & Analyses")
 datPre = read.csv("Pre.csv", header = FALSE, row.names = NULL)
 
@@ -70,6 +66,8 @@ head(datPre)
 datPre = datPre[-1,]
 datPre = data.frame(datPre)
 head(datPre)
+write.csv(datPre, "datPre.csv", row.names = FALSE)
+dim(datPre)
 
 #Only retain clincial staff 1
 datPre = subset(datPre, Clinical_Staff == 1)
@@ -108,11 +106,11 @@ write.csv(datPost, "datPost.csv", row.names = FALSE)
 datPost = read.csv("datPost.csv", header = TRUE)
 
 #Should not have ID one, because they are the wrong code and not in datPre
-datPrePost = merge(datPre, datPost, by = "ID",  all.x = TRUE, sort = TRUE)
+datPrePost = merge(datPre, datPost, by = "ID", sort = TRUE)
+dim(datPrePost)
+dim(datPrePost)
 
-
-
-dat3month = read.csv("3month.csv", header  = TRUE)
+#dat3month = read.csv("3month.csv", header  = TRUE)
 head(dat3month)
 dat3month = dat3month[c(7, 11:22, 23:69)]
 dim(datPost)
@@ -125,7 +123,10 @@ colnames(dat3month) = c("ID", "Sec1Qa", "Sec1Qb", "Sec1Qc", "Sec1Qd", "Sec1Qe", 
 datPrePost3month = merge(datPrePost, dat3month, by = "ID", all.x = TRUE, sort = TRUE)
 
 head(datPrePost3month)
+dim(datPrePost3month)
 
+#### Number of matched breakdown
+describe.factor(datPrePost3month$Treatment)
 
 ### Now make long format
 ### These variables are not included: 							
@@ -188,12 +189,6 @@ describe.factor(datPrePost3month$Sec2Qo.x)
 
 
 # 5 = -3; 4 = -2, 3 = -1, 6=0, 7=1,  8 = 2, 1 = NA, NA = NA, 9 = 3
-describe.factor(datPrePost3month$Sec4QfA.x)
-datPrePost3month$Sec4QfA.x = ifelse(datPrePost3month$Sec4QfA.x == " ", NA, ifelse(datPrePost3month$Sec4QfA.x == "-", NA, datPrePost3month$Sec4QfA.x))
-describe.factor(datPrePost3month$Sec4QfA.x)
-
-datPrePost3month$Sec4QfA.x = ifelse(datPrePost3month$Sec4QfA.x == 5, -3, ifelse(datPrePost3month$Sec4QfA.x  == 4, -2, ifelse(datPrePost3month$Sec4QfA.x == 3, -1, ifelse(datPrePost3month$Sec4QfA.x == 6, 0, ifelse(datPrePost3month$Sec4QfA.x == 7, 1, ifelse(datPrePost3month$Sec4QfA.x == 8, 2, ifelse(datPrePost3month$Sec4QfA.x == 1, NA, ifelse(datPrePost3month$Sec4QfA.x == 9, 3, datPrePost3month$Sec4QfA.x ))))))))
-describe.factor(datPrePost3month$Sec4QfA.x)
 
 describe.factor(datPrePost3month$Sec4QfB.x)
 datPrePost3month$Sec4QfB.x = ifelse(datPrePost3month$Sec4QfB.x == -23, NA, datPrePost3month$Sec4QfB.x)
@@ -268,6 +263,44 @@ datPrePost3month$Sec4QlB.x =  datPrePost3month$Sec4QlB.x-3.00
 #Gender: Males = 1, Female = 0 no
 ##Race: White =1, other racial identity
 #Edu: Bachelors or lower = 1, higher than Bachelors = 0
+
+## Now I am getting rid of any data that is missing more than 70% of data
+head(datPrePost3month)
+datPrePost3monthComplete = data.frame(is.na(datPrePost3month))
+datPrePost3monthComplete$NAs = apply(datPrePost3monthComplete, 1, sum)
+datPrePost3monthComplete$NAs = datPrePost3monthComplete$NAs / dim(datPrePost3monthComplete)[2]
+describe.factor(datPrePost3monthComplete$NAs)
+datPrePost3monthComplete$NAs = ifelse(datPrePost3monthComplete$NAs >= .7, 0,1)
+describe.factor(datPrePost3monthComplete$NAs)
+
+# I need to grab the NAs variable put it into the full data set, then create two data sets and dim them one with all the data and one without all the data, then use na.omit later
+datPrePost3month$NAs = datPrePost3monthComplete$NAs 
+# Get rid of 3-month follow-up, because we are not including their data
+dim(subset(datPrePost3month, time  == 0))
+
+datPrePost3monthComplete = subset(datPrePost3month, time == 0 | time == 1)
+dim(subset(datPrePost3monthComplete, time ==0))
+sum(is.na(datPrePost3monthComplete))
+# Now get rid of those with 70% missing data 
+datPrePost3monthComplete = subset(datPrePost3monthComplete, NAs == 1)
+dim(subset(datPrePost3monthComplete, time == 0))
+dim(subset(datPrePost3monthComplete, time == 1))
+
+#### Post or Matching broken down
+base = subset(datPrePost3monthComplete, time == 0)
+describe.factor(base$Treatment)
+#### Now getting rid of the actual missing data
+datPrePost3monthCompleteTest = na.omit(datPrePost3monthComplete)
+describe.factor(datPrePost3monthCompleteTest$time)
+## 
+dim(datPrePost3monthCompleteTest)
+baseTest = subset(datPrePost3monthCompleteTest, time == 0)
+describe.factor(baseTest$Treatment)
+
+######### Making the change to make it easier 
+datPrePost3month = datPrePost3monthComplete
+datPrePost3month$NAs = NULL
+
 
 head(datPrePost3month)
 
@@ -382,12 +415,13 @@ datPrePost3monthAnalysis = data.frame(ID = datPrePost3month$ID, Treatment = datP
 
 # No casese non female or male gender
 describe.factor(datPrePost3monthAnalysis$Gender)
-datPrePost3monthAnalysis$Gender = ifelse(datPrePost3monthAnalysis$Gender == 1,1,0)
-datPrePost3monthAnalysis$Race = ifelse(datPrePost3monthAnalysis$Race == 5, 0, 1)
+## Female == 2
+datPrePost3monthAnalysis$Gender = ifelse(datPrePost3monthAnalysis$Gender == 2,1,0)
+### Not 5 equals all but white
+datPrePost3monthAnalysis$Race = ifelse(datPrePost3monthAnalysis$Race != 5, 1, 0)
 
 describe.factor(datPrePost3monthAnalysis$Edu)
-
-
+### Bachelors or lower
 datPrePost3monthAnalysis$Edu = ifelse(datPrePost3monthAnalysis$Edu < 6, 1, 0)
 
 #datPrePost3monthAnalysisComplete = subset(datPrePost3monthAnalysis, Treatment == 1 | Treatment == 2)
@@ -403,9 +437,14 @@ datPrePost3monthAnalysis$Race = as.factor(datPrePost3monthAnalysis$Race)
 datPrePost3monthAnalysis$Edu = as.factor(datPrePost3monthAnalysis$Edu)
 
 head(datPrePost3monthAnalysis)
+dim(datPrePost3monthAnalysis)
+base_treat = subset(datPrePost3monthAnalysis, Time == 0)
+
 ```
 Assess missing values for prePost3month and prePost
 ```{r}
+
+
 sum(is.na(datPrePost3monthAnalysis))
 datPrePost3monthAnalysisComplete = na.omit(datPrePost3monthAnalysis)
 dim(datPrePost3monthAnalysis)[1]
@@ -413,194 +452,669 @@ dim(datPrePost3monthAnalysisComplete)[1]
 
 1-(dim(datPrePost3monthAnalysisComplete)[1] / dim(datPrePost3monthAnalysis)[1])
 
-# Missing values for prePost
-write.csv(datPrePost3monthAnalysis, "datPrePost3monthAnalysis.csv", row.names = FALSE)
-datPrePost3monthAnalysis = read.csv("datPrePost3monthAnalysis.csv", header = TRUE)
-datPrePostAnalysis = subset(datPrePost3monthAnalysis, Time  == 0 | Time == 1)
-write.csv(datPrePostAnalysis, "datPrePostAnalysis.csv", row.names = FALSE)
-datPrePostAnalysis = read.csv("datPrePostAnalysis.csv", header = TRUE)
-describe.factor(datPrePostAnalysis$Time)
+test_norm = datPrePost3monthAnalysis[,-c(1)]
+test_norm = as.data.frame(test_norm)
 
-## Ok no need to impute for pre and post
-datPrePostAnalysisComplete = na.omit(datPrePostAnalysis)
-1-(dim(datPrePostAnalysisComplete)[1]/dim(datPrePostAnalysis)[1])
-TestMCARNormality(datPrePostAnalysis)
+write.csv(test_norm, "test_norm.csv", row.names = FALSE)
+test_norm = read.csv("test_norm.csv", header = TRUE)
+TestMCARNormality(test_norm)
 
-## Missing values for pre, post, and 3month
-datPrePost3monthAnalysisComplete = na.omit(datPrePost3monthAnalysis)
-1-(dim(datPrePost3monthAnalysisComplete)[1]/dim(datPrePost3monthAnalysis)[1])
-write.csv(datPrePost3monthAnalysis, "datPrePost3monthAnalysis.csv", row.names = FALSE)
-datPrePost3monthAnalysis = read.csv("datPrePost3monthAnalysis.csv", header = TRUE)
 
-TestMCARNormality(datPrePost3monthAnalysis)
+describe.factor(datPrePost3monthAnalysisComplete$Time)
 ```
 Get descriptives for each time point
 ```{r}
+
 datPrePost3monthAnalysisBase = subset(datPrePost3monthAnalysis, Time == 0)
-describe(datPrePost3monthAnalysis)
+describe(datPrePost3monthAnalysisBase)
+round(sd(datPrePost3monthAnalysisBase$Age, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec2Total, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec3TotalF1, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec3TotalF2, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisBase$Sec4Total, na.rm  =TRUE),2)
 
 
 datPrePost3monthAnalysisPost = subset(datPrePost3monthAnalysis, Time == 1)
 describe(datPrePost3monthAnalysisPost)
 
+datPrePost3monthAnalysisPostTest = subset(datPrePost3monthAnalysis, Time == 1)
+describe(datPrePost3monthAnalysisPostTest)
 
-datPrePost3monthAnalysis3month = subset(datPrePost3monthAnalysis, Time == 2)
-describe(datPrePost3monthAnalysis3month)
+round(sd(datPrePost3monthAnalysisPost$Age, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec2Total, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec3TotalF1, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec3TotalF2, na.rm  =TRUE),2)
+round(sd(datPrePost3monthAnalysisPost$Sec4Total, na.rm  =TRUE),2)
+
+
+
+```
+
+datAnalysisAllComplete
+
+#########################
+Within program tests
+#########################
+```{r}
+
+datAnalysisAllComplete = datPrePost3monthAnalysis
+
+datAnalysisAllComplete$Sec2Total_scaled = scale(datAnalysisAllComplete$Sec2Total)
+datAnalysisAllComplete$Sec3TotalF1_scaled = scale(datAnalysisAllComplete$Sec3TotalF1)
+datAnalysisAllComplete$Sec3TotalF2_scaled = scale(datAnalysisAllComplete$Sec3TotalF2)
+datAnalysisAllComplete$Sec4Total_scaled = scale(datAnalysisAllComplete$Sec4Total)
+
+datAnalysisAllComplete$Sec2Total_log = log(datAnalysisAllComplete$Sec2Total)
+datAnalysisAllComplete$Sec3TotalF1_log = log(datAnalysisAllComplete$Sec3TotalF1)
+datAnalysisAllComplete$Sec3TotalF2_log = log(datAnalysisAllComplete$Sec3TotalF2)
+#datAnalysisAllComplete$Sec4Total_log = log(datAnalysisAllComplete$Sec4Total)
+
+datAnalysisT1 = subset(datAnalysisAllComplete, Treatment == 1)
+datAnalysisT2 = subset(datAnalysisAllComplete, Treatment == 2)
+datAnalysisT3 = subset(datAnalysisAllComplete, Treatment == 3)
+
 ```
 
 
-Now generate missing data for varibles
-There are 18 data points so six people with treatment for three month follow-up but no treatment ID for pre or post. 
-Deleting them for now, but will check in later on this
-
-If data is still missing that means that there is zero data for the response
-
-Getting rid of missing values after imputation, because if there are still missing values that means that the entire data set is empty
+#########################
+T1 Only Sec2PrePost
+#########################
 ```{r}
-head(datPrePost3monthAnalysis)
-summary(datPrePost3monthAnalysis$ID)
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec2Total ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec2Total_scaled ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_stand)
+output_log = lmer(Sec2Total_log ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_log)
 
-# Getting rid of NA's for treatment
-datPrePost3monthAnalysis = subset(datPrePost3monthAnalysis, Treatment == 1 | Treatment == 2 | Treatment == 3)
-describe.factor(datPrePost3monthAnalysis$Treatment)
-m = 10
-head(datPrePost3monthAnalysis)
 
-datPrePost3monthAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec2Total ~ Time + (1 | ID), data  = datAnalysisT1)
+konfound(output_reg, Time)
 
-compare.density(datPrePost3monthAnalysisImpute, var = "Sec1Total")
-compare.density(datPrePost3monthAnalysisImpute, var = "Sec2Total")
-compare.density(datPrePost3monthAnalysisImpute, var = "Sec3Total")
-compare.density(datPrePost3monthAnalysisImpute, var = "Sec4Total")
-summary(datPrePost3monthAnalysisImpute)
-datAnalysisAll = lapply(1:m, function(x){datPrePost3monthAnalysisImpute$imputations[[x]]})
 
-datAnalysisAllComplete = NULL
+```
+#########################
+T2 Only Sec2PrePost
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec2Total ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec2Total_scaled ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_stand)
+output_log = lmer(Sec2Total_log ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec2Total ~ Time + (1 | ID), data  = datAnalysisT2)
+konfound(output_reg, Time)
+
+
+```
+
+########################
+T3 Only Sec2PrePost
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec2Total ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec2Total_scaled ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_stand)
+output_log = lmer(Sec2Total_log ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec2Total ~ Time + (1 | ID), data  = datAnalysisT3)
+konfound(output_reg, Time)
+
+```
+#########################
+T1 Only Sec3TotalF1
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec3TotalF1 ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec3TotalF1_scaled ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_stand)
+output_log = lmer(Sec3TotalF1_log ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec3TotalF1 ~ Time + (1 | ID), data  = datAnalysisT1)
+konfound(output_reg, Time)
+
+
+```
+########################
+T2 Only Sec3TotalF1
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec3TotalF1 ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec3TotalF1_scaled ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_stand)
+output_log = lmer(Sec3TotalF1_log ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec3TotalF1 ~ Time + (1 | ID), data  = datAnalysisT2)
+konfound(output_reg, Time)
+
+```
+########################
+T3 Only Sec3TotalF1
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec3TotalF1 ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec3TotalF1_scaled ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_stand)
+output_log = lmer(Sec3TotalF1_log ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec3TotalF1 ~ Time + (1 | ID), data  = datAnalysisT3)
+konfound(output_reg, Time)
+
+```
+#########################
+T1 Only Sec3TotalF2
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec3TotalF2_scaled ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_stand)
+output_log = lmer(Sec3TotalF2_log ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT1)
+konfound(output_reg, Time)
+
+
+```
+########################
+T2 Only Sec3TotalF2
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec3TotalF2_scaled ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_stand)
+output_log = lmer(Sec3TotalF2_log ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT2)
+konfound(output_reg, Time)
+
+```
+########################
+T3 Only Sec3TotalF2
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec3TotalF2_scaled ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_stand)
+output_log = lmer(Sec3TotalF2_log ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT3)
+konfound(output_reg, Time)
+
+```
+#########################
+T1 Only Sec4Total
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec4Total ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec4Total_scaled ~ Time + (1 | ID), data  = datAnalysisT1)
+summary(output_stand)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec4Total ~ Time + (1 | ID), data  = datAnalysisT1)
+konfound(output_reg, Time)
+
+
+```
+########################
+T2 Only Sec4Total
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec4Total ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec4Total_scaled ~ Time + (1 | ID), data  = datAnalysisT2)
+summary(output_stand)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec4Total ~ Time + (1 | ID), data  = datAnalysisT2)
+konfound(output_reg, Time)
+
+```
+########################
+T3 Only Sec4Total
+#########################
+```{r}
+library(lme4)
+library(lmerTest)
+output_reg = lmer(Sec4Total ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_reg)
+confint(output_reg)
+output_stand = lmer(Sec4Total_scaled ~ Time + (1 | ID), data  = datAnalysisT3)
+summary(output_stand)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec4Total ~ Time + (1 | ID), data  = datAnalysisT3)
+konfound(output_reg, Time)
+
+```
+
+##########################################################
+Between Program Model: Section  Sec2PostPre 
+##########################################################
+```{r}
+install.packages("lmerTest")
+library(lmerTest)
+
+output_reg = lmer(Sec2Total ~ Time*factor(Treatment) + Age + Gender + Race + Edu + (1 | ID), data  = datAnalysisAllComplete)
+summary(output_reg)
+confint(output_reg)
+
+output_reg_stand = lmer(Sec2Total_scaled ~ Time*factor(Treatment) + Age + Gender + Race + Edu  + (1 | ID), data  = datAnalysisAllComplete)
+summary(output_reg_stand)
+
+output_reg_log = lmer( Sec2Total_log~  Time*factor(Treatment) + Age + Gender + Race + Edu  + (1 | ID), data  = datAnalysisAllComplete)
+summary(output_reg_log)
+
+
+uninstall.packages("lmerTest")
+output_reg = lmer(Sec2Total ~ Time*factor(Treatment) + Age + Gender + Race + Edu  + (1 | ID), data  = datAnalysisAllComplete)
+
+
+konfound(output_reg, "Time:factor(Treatment)3")
+
+
+```
+Contrasts 
+```{r}
+K = matrix(c(0,0,0,0,0,0,0,0,1,-1), nrow = 1, byrow = TRUE)
+library(multcomp)
+t = glht(output_reg, linfct = K)
+t = summary(t)
+t
+
+
+K = matrix(c(0,0,0,0,0,0,0,0,1,-1), nrow = 1, byrow = TRUE)
+t_stand = glht(output_reg_stand, linfct = K)
+t_stand = summary(t_stand)
+t_stand 
+
+K = matrix(c(0,0,0,0,0,0,0,0,1,-1), nrow = 1, byrow = TRUE)
+t_log = glht(output_reg_log, linfct = K)
+t_log = summary(t_log)
+t_log
+
+```
+#######################################
+Compare graphically the differences
+#######################################
+```{r}
+modGraph = NULL
 for(i in 1:m){
- datAnalysisAllComplete[[i]] = na.omit(datAnalysisAll[[i]])
+  modGraph[[i]] = cat_plot(model = outputReg[[i]], pred = "Time", modx = "Treatment", cluster = "ID", data = datAnalysisAllComplete[[i]], y.label = "Section Three Factor 2 total score", interval = FALSE, geom = "line")
 }
-
+modGraph[[1]]
 
 ```
-Now get desciptives for base
+
+
+
+########################################
+Hedge's G Outcome 2, Post-Pre,T1 and T3
+########################################
 ```{r}
-datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAll[[x]], Time == 0)})
+datWideAnalysisT12 = NULL
 
-mean.out = NULL
-for(i in 1:m) {
-  mean.out[[i]] = apply(datAnalysisAllDes[[i]], 2, mean)
-  mean.out = data.frame(mean.out)
-}
-mean.out
-
-descFun = function(x){
-  x = data.frame(t(x))
-}
-mean.out = descFun(mean.out)
-mean.out
-
-# now get sds
-sd.out = NULL
-for(i in 1:m) {
-  sd.out[[i]] = apply(datAnalysisAllDes[[i]], 2, sd)
-  sd.out = data.frame(sd.out)
-}
-sd.out = descFun(sd.out)
-sd.out
-mean.sd.out= mi.meld(mean.out, sd.out)
-mean.sd.out
-
-```
-Now get descriptives for post
-```{r}
-datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAll[[x]], Time == 1)})
-
-mean.out = NULL
-for(i in 1:m) {
-  mean.out[[i]] = apply(datAnalysisAllDes[[i]], 2, mean)
-  mean.out = data.frame(mean.out)
-}
-mean.out
-
-descFun = function(x){
-  x = data.frame(t(x))
-}
-mean.out = descFun(mean.out)
-mean.out
-
-# now get sds
-sd.out = NULL
-for(i in 1:m) {
-  sd.out[[i]] = apply(datAnalysisAllDes[[i]], 2, sd)
-  sd.out = data.frame(sd.out)
-}
-sd.out = descFun(sd.out)
-sd.out
-mean.sd.out= mi.meld(mean.out, sd.out)
-mean.sd.out
-
-```
-Now get descriptives for 3month
-```{r}
-datAnalysisAllDes = lapply(1:m, function(x){subset(datAnalysisAll[[x]], Time == 2)})
-
-mean.out = NULL
-for(i in 1:m) {
-  mean.out[[i]] = apply(datAnalysisAllDes[[i]], 2, mean)
-  mean.out = data.frame(mean.out)
-}
-mean.out
-
-descFun = function(x){
-  x = data.frame(t(x))
-}
-mean.out = descFun(mean.out)
-mean.out
-
-# now get sds
-sd.out = NULL
-for(i in 1:m) {
-  sd.out[[i]] = apply(datAnalysisAllDes[[i]], 2, sd)
-  sd.out = data.frame(sd.out)
-}
-sd.out = descFun(sd.out)
-sd.out
-mean.sd.out= mi.meld(mean.out, sd.out)
-mean.sd.out
-
-```
-##########
-Get wide data
-##########
-
-#datAdultAnalysisWide = reshape(data = datAdultAnalysis, v.names = c("RASTotalScore", "INQTotalScore", "SSMITotalScore", "SISTotalScore"), timevar = "Time", direction = "wide", idvar = "ID")
-
-Need to create difference scores
-
-```{r}
-datPrePost3monthAnalysis = subset(datPrePost3monthAnalysis, Treatment == 1 | Treatment == 2 | Treatment == 3)
-
-datWideAnalysis = reshape(datPrePost3monthAnalysis, v.names = c("Sec1Total", "Sec2Total", "Sec3TotalF1", "Sec3TotalF2", "Sec4Total"), timevar = "Time", direction = "wide", idvar = "ID")
-head(datWideAnalysis)
-
-
-m = 10
-head(datPrePost3monthAnalysis)
-
-datWideAnalysisImpute = amelia(m = m, datPrePost3monthAnalysis, noms = c("Gender", "Race", "Edu"), idvars = c("ID", "Treatment"), ts = "Time")
-
-#compare.density(datPrePost3monthAnalysisImpute, var = "Sec1Total")
-#compare.density(datPrePost3monthAnalysisImpute, var = "Sec2Total")
-#compare.density(datPrePost3monthAnalysisImpute, var = "Sec3Total")
-#compare.density(datPrePost3monthAnalysisImpute, var = "Sec4Total")
-summary(datPrePost3monthAnalysisImpute)
-datAnalysisAll = lapply(1:m, function(x){datPrePost3monthAnalysisImpute$imputations[[x]]})
-
-datAnalysisAllComplete = NULL
 for(i in 1:m){
- datAnalysisAllComplete[[i]] = na.omit(datAnalysisAll[[i]])
+  datWideAnalysisT12[[i]] = subset(datWideAnalysis[[i]], Treatment == 1 | Treatment == 3)
 }
+
+#Need the mean and sd for each treatment
+# We need to get the means and sd for Section 2 Pre-Post
+# So I need to get the difference scores, then I need the mean, then substract each mean of the difference score for each treatment
+# how do I get the standard deviation
+
+cohenDat = NULL
+for(i in 1:m){
+  cohenDat[[i]] = cohen.d(datWideAnalysisT12[[i]]$Sec2PostPre, datWideAnalysisT12[[i]]$Treatment, hedges.correction = TRUE)
+  cohenDat[[i]] = cohenDat[[i]]$estimate
+}
+
+cohenD = data.frame(t(data.frame(cohenDat)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+
 ```
+########################################
+Hedge's G Outcome 2, Post-Pre,T2 and T3
+########################################
+```{r}
+datWideAnalysisT12 = NULL
+
+for(i in 1:m){
+  datWideAnalysisT12[[i]] = subset(datWideAnalysis[[i]], Treatment == 2 | Treatment == 3)
+}
 
 
+cohenDat = NULL
+for(i in 1:m){
+  cohenDat[[i]] = cohen.d(datWideAnalysisT12[[i]]$Sec2PostPre, datWideAnalysisT12[[i]]$Treatment, hedges.correction = TRUE)
+  cohenDat[[i]] = cohenDat[[i]]$estimate
+}
 
+cohenD = data.frame(t(data.frame(cohenDat)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  return(data.frame(coefs1, ses1))
+}
+y = data.frame(rnorm(10))
+
+meldAllT_stat(cohenD, y)
+
+```
+##########################################################
+Linear Model: Section  Sec23monthPost, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec23monthPost ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec23monthPost, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec23monthPost T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+No differences no need for cohen's D
+
+##########################################################
+Linear Model: Section  Sec3F1PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+for(i in 1:m){
+  output[[i]] = lm(Sec3F1PostPre ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec3F1PostPre, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F1PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+##########################################################
+Linear Model: Section  Sec3F13monthPost, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec23monthPost ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec23monthPost, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F1PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+##########################################################
+Linear Model: Section  Sec3F2PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+
+for(i in 1:m){
+  output[[i]] = lm(Sec3F2PostPre ~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec3F2PostPre, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F2PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
+##########################################################
+Linear Model: Section  Sec3F2PostPre, 1v2+3, 2v1+3 and 2v3 
+##########################################################
+```{r}
+output = NULL
+outputSummary = NULL
+coef_output = NULL
+se_output = NULL
+
+for(i in 1:m){
+  output[[i]] = lm(Sec3F23monthPost~ factor(Treatment) + Gender + Race, data = datWideAnalysis[[i]])
+  outputSummary[[i]] = summary(output[[i]])
+  coef_output[[i]] = outputSummary[[i]]$coefficients[,1]
+  se_output[[i]] = outputSummary[[i]]$coefficients[,2]
+}
+coef_output = data.frame(t(data.frame(coef_output))) 
+se_output = data.frame(t(data.frame(se_output)))
+
+meldAllT_stat = function(x,y){
+  coefsAll = mi.meld(q = x, se = y)
+  coefs1 = t(data.frame(coefsAll$q.mi))
+  ses1 = t(data.frame(coefsAll$se.mi))
+  t_stat = coefs1/ses1
+  p = 2*(pt(-abs(t_stat), df = outputSummary[[2]]$df[2]))
+  return(data.frame(coefs1, ses1, t_stat, p))
+}
+
+
+results = meldAllT_stat(coef_output, se_output)
+round(results, 3)
+
+# Make sure things make sense i.e. difference in means
+compmeans(datWideAnalysis[[1]]$Sec3F2PostPre, datWideAnalysis[[1]]$Treatment)
+```
+####################################
+Contrasts Sec3F1PostPre T2 versus T3
+####################################
+```{r}
+K = matrix(c(0, 1, -1, 0,0), 1)
+library(multcomp)
+t = NULL
+for(i in 1:m){
+  t[[i]] = glht(output[[i]], linfct = K)
+  t[[i]] = summary(t[[i]])
+}
+t
+```
