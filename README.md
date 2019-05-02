@@ -411,7 +411,7 @@ datPrePost3monthAnalysisJen = data.frame(ID = datPrePost3month$ID, Treatment = d
 write.csv(datPrePost3monthAnalysisJen, "GatekeeperData.csv", row.names = FALSE)
 
 
-datPrePost3monthAnalysis = data.frame(ID = datPrePost3month$ID, Treatment = datPrePost3month$Treatment, Age =  datPrePost3month$Age, Gender = datPrePost3month$Gender, Race = datPrePost3month$Race, Edu = datPrePost3month$Edu, Time = datPrePost3month$time,Sec1Total =  Sec1Total, Sec2Total = Sec2Total, Sec3TotalF1 = Sec3TotalF1, Sec3TotalF2 = Sec3TotalF2, Sec4Total = Sec4Total)
+datPrePost3monthAnalysis = data.frame(ID = datPrePost3month$ID, Treatment = datPrePost3month$Treatment, Age =  datPrePost3month$Age, Gender = datPrePost3month$Gender, Race = datPrePost3month$Race, Edu = datPrePost3month$Edu, Time = datPrePost3month$time, Sec2Total = Sec2Total, Sec3TotalF1 = Sec3TotalF1, Sec3TotalF2 = Sec3TotalF2, Sec4Total = Sec4Total)
 
 # No casese non female or male gender
 describe.factor(datPrePost3monthAnalysis$Gender)
@@ -443,8 +443,6 @@ base_treat = subset(datPrePost3monthAnalysis, Time == 0)
 ```
 Assess missing values for prePost3month and prePost
 ```{r}
-
-
 sum(is.na(datPrePost3monthAnalysis))
 datPrePost3monthAnalysisComplete = na.omit(datPrePost3monthAnalysis)
 dim(datPrePost3monthAnalysis)[1]
@@ -459,8 +457,8 @@ write.csv(test_norm, "test_norm.csv", row.names = FALSE)
 test_norm = read.csv("test_norm.csv", header = TRUE)
 TestMCARNormality(test_norm)
 
-
 describe.factor(datPrePost3monthAnalysisComplete$Time)
+describe.factor(datPrePost3monthAnalysis$Time)
 ```
 Get descriptives for each time point
 ```{r}
@@ -490,11 +488,23 @@ round(sd(datPrePost3monthAnalysisPost$Sec4Total, na.rm  =TRUE),2)
 
 ```
 Missing numbers
+There is the total missing, which you can report in the paper then there is the percentage missing for column will not necessary add up (percentage missing per column will likely will not add up to total percentage missing)
 ```{r}
-datPrePost3monthAnalysis
-install.packages("questionr")
+x = data.frame(x = c(1, 2, NA, 3), y = c(NA, NA, 4, 5))
+mean(is.na(x))
+apply(x, 2, function(col)sum(is.na(col))/length(col))
+
+dim(datPrePost3monthAnalysis)
 library(questionr)
 freq.na(datPrePost3monthAnalysis)
+
+
+### Same as above
+missing = round(apply(datPrePost3monthAnalysis,2, function(x){sum(is.na(x))})/dim(datPrePost3monthAnalysis)[1],3)
+missing = data.frame(missing)
+sum(missing)
+missing
+mean(is.na(datPrePost3monthAnalysis))
 ```
 
 
