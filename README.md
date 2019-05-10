@@ -26,15 +26,12 @@ library(mitools)
 library(BaylorEdPsych)
 library(lavaan)
 library(psych)
-library(semTools)
 library(dplyr)
 library(ltm)
 library(prettyR)
-library(semTools)
 library(GPArotation)
 library(lavaan)
 library(psych)
-library(semTools)
 library(dplyr)
 library(ltm)
 library(lordif)
@@ -678,7 +675,7 @@ T1 Only Sec3TotalF2
 #########################
 ```{r}
 library(lme4)
-install.packages("lmerTest")
+#install.packages("lmerTest")
 library(lmerTest)
 output_reg = lmer(Sec3TotalF2 ~ Time + (1 | ID), data  = datAnalysisT1)
 summary(output_reg)
@@ -827,12 +824,16 @@ konfound(output_reg, "Time:factor(Treatment)3")
 ```
 Contrasts 
 ```{r}
+install.packages("lmerTest")
+library(lmerTest)
+
 K = matrix(c(0,0,0,0,0,0,0,0,1,-1), nrow = 1, byrow = TRUE)
 library(multcomp)
 t = glht(output_reg, linfct = K)
 t = summary(t)
 confint(t)
 t
+
 
 
 K = matrix(c(0,0,0,0,0,0,0,0,1,-1), nrow = 1, byrow = TRUE)
@@ -859,7 +860,7 @@ modGraph
 Between Program Model: Section  Sec3TotalF1 
 ##########################################################
 ```{r}
-install.packages("lmerTest")
+#install.packages("lmerTest")
 library(lmerTest)
 
 output_reg = lmer(Sec3TotalF1 ~ Time*factor(Treatment) + Age + Gender + Race + Edu + (1 | ID), data  = datAnalysisAllComplete)
@@ -934,6 +935,7 @@ K = matrix(c(0,0,0,0,0,0,0,0,1,-1), nrow = 1, byrow = TRUE)
 library(multcomp)
 t = glht(output_reg, linfct = K)
 t = summary(t)
+t
 confint(t)
 
 
